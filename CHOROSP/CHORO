@@ -1,0 +1,185 @@
+library(kerasVis)
+library(ggspatial)
+library(nnet)
+library(jpeg)
+library(sf)
+library(sp)
+library(tidyverse)  # Modern data science workflow
+library(spdep)
+library(spatialreg)
+library(rgdal)
+library(dplyr)
+library(stats)
+library(glmnet)
+#library(matlib)
+library(MASS)
+library(stringr)
+library(graphics)
+library(zoo)
+library(Metrics)
+library(qtl2)
+library(janitor)
+library(neuralnet)
+library(NeuralNetTools)
+library(DiagrammeR)
+library(keras)
+library(graphviz) 
+library(pydot)
+library(tensorflow)
+#log_dir <- "logs"  # Specify a directory to store TensorBoard logs
+#tensorboard_callback <- callback_tensorboard(log_dir = log_dir, 
+#                                             histogram_freq = 1, write_graph = TRUE, write_images = TRUE)
+
+options(prompt="R> ", digits=4, scipen=7)
+
+at <- read_csv("pesquisa 2/atn1.csv")
+#agregado_tudo_novo_8 <- read_csv("Desktop/pesquisa 2/agregado_tudo_novo_8.csv")
+#agregado_tudo_novo_9csv <- read_csv("Desktop/pesquisa 2/agregado_tudo_novo_9csv.csv")
+
+at$População <- 
+  str_replace(at$População, '\\.', '')
+
+at$População <- 
+  sapply(at$População, as.numeric)
+
+target <- c('2017-01-01','2017-02-01','2017-03-01',
+            '2017-04-01','2017-05-01','2017-06-01',
+            '2017-07-01','2017-08-01','2017-09-01',
+            '2017-10-01', '2017-11-01', '2017-12-01')
+
+#filtrar as cidades que estao proximo de sp 
+at <- at %>% 
+  filter(tempo %in% target)
+
+
+# Para remover um caractere ou substring específico de todas as entradas de uma coluna de string
+
+
+nrow(at)
+ncol(at)
+at$População[which(at$name 
+                                      == "Guarulhos")] <- 1404694
+at$População[which(at$name 
+                                      == "São Paulo")] <- 12396372 
+
+at$População[which(at$name 
+                   == "Campinas")] <- 1139047
+#agregado_tudo$Total_de_crimes12m[agregado_tudo$Total_de_crimes12m == 0] <- NA
+#agregado_tudo_1  <- na.locf(na.locf(agregado_tudo))
+#agregado_tudo_1 <- agregado_tudo_1[agregado_tudo_1$name != "Arujá", ]  
+nrow(at)
+
+
+vc <- "https://raw.githubusercontent.com/tbrugz/geodata-br/master/geojson/geojs-35-mun.json"
+dir.create("C:/temp")
+downloader::download(url = vc, destfile = "C:/temp/gas.GeoJSON")
+municipio <- st_read("C:/temp/gas.GeoJSON")
+summary(municipio)
+
+municipio_1 <- subset(municipio, name %in% 
+                        at$name)
+summary(municipio_1)
+head(municipio_1)
+nrow(municipio_1)
+
+
+
+# Convert SpatialPolygonsDataFrame to sf object
+municipio_1_sf <- st_as_sf(municipio_1)
+
+# Calculate area in km2
+municipio_1_sf$area_km2 <- st_area(municipio_1_sf) / 10^6
+
+# Calculate population density
+at <- at %>%
+  left_join(municipio_1_sf %>% st_drop_geometry(), by = c("name" = "name")) %>%
+  mutate(pop_density = População / area_km2)
+
+
+# View results
+head(at$pop_density)
+#View(agregado_tudo_novo_1)
+
+at$pop_density <- gsub("[^0-9.]", "", 
+                                          at$pop_density)
+at$pop_density <- 
+  as.numeric(at$pop_density)
+head(at$pop_density)
+
+
+at$Total_de_crimes <- 
+  as.numeric(at$Total_de_crimes)
+at$População <- 
+  as.numeric(at$População)
+
+at$crime_per_capita <- 
+  (at$Total_de_crimes / 
+     at$População) * 100000 
+at$crime_per_capita
+at[] <- lapply(at, function(x) ifelse(is.na(x), 0, x))
+
+
+
+# Load data
+data(meuse)
+coordinates(meuse) <- c("x", "y")
+proj4string(meuse) <- CRS("+init=epsg:28992")
+gridded(meuse) <- TRUE
+meuse_polygons <- as(meuse, "SpatialPolygonsDataFrame")
+
+
+# Load municipio_2 and convert to sf object
+municipio_1_sf <- st_as_sf(municipio_1, coords = c("long", 
+                                                   "lat"), crs = 4326)
+
+# Join municipio_2_sf with test_data_norm_2 based on "name" 
+
+test_data_norm_df_3 <- as.data.frame(at)
+
+test_data_sf_2 <- left_join(test_data_norm_df_3, municipio_1_sf, 
+                            by = c("name" = "name")) %>%
+  dplyr::select(name, crime_per_capita, pop_density, geometry)
+
+test_data_sf_2$crime_per_capita <- 
+  as.numeric(test_data_sf_2$crime_per_capita)
+test_data_sf_2$crime_per_capita
+
+library(ggplot2)
+
+
+
+#p <- ggplot(test_data_sf_2) +
+#  geom_sf(aes(fill = crime_per_capita, geometry = geometry)) +
+#  scale_fill_gradient(low="white", high="blue", 
+       #               name="crime_per_capita") +
+  # Set the figure size and resolution
+#  options(repr.plot.width=10, repr.plot.height=5, repr.plot.res=80)
+
+# Show the plot
+#p
+
+# Ensure test_data_sf_2 is an sf object with proper geometry
+# If test_data_sf_2 is already correctly formatted, this step is not necessary
+test_data_sf_2 <- st_as_sf(test_data_sf_2, coords = c("lon", "lat"), crs = 4326)
+
+test_data_sf_2 <- st_as_sf(test_data_sf_2, sf_column_name = "geometry")
+
+
+
+
+pdois <- ggplot(data = test_data_sf_2) +
+  geom_sf(aes(fill = crime_per_capita)) +
+  scale_fill_gradient(low = "white", high = "blue", name = "Crime per Capita", 
+                      limits = c(min(test_data_sf_2$crime_per_capita, na.rm = TRUE), 500)) +
+  geom_sf_text(aes(label = ifelse(crime_per_capita > 500, name, NA)), size = 2.2, check_overlap = TRUE, position = position_nudge(y = 0.005)) +
+  theme_minimal() +
+  labs(x = "Longitude", y = "Latitude")
+
+
+
+print(pdois)
+
+
+
+
+
