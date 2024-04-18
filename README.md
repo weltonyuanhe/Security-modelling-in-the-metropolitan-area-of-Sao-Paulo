@@ -10,7 +10,7 @@ work, based on the number of crimes, SAR modeling is used to describe and model 
 in the metropolitan region of São Paulo, Brazil, including the annual seasonality observed in
 the data. To visualize the data and develop modeling with the spatial neighborhood matrix, R
 packages such as spatialreg are used. The Lasso method is used to pre-select variables with
-greater significance, such as the number of inhabitants per household, the dropout rate, and
+greater significance, such as the number of inhabitants per household, and
 the public elementary school dropout rate in the early years. Then, the SAR model is applied
 to include spatial information and enhance crime modeling. In general, this work focuses on
 developing spatiotemporal modeling for crimes in the state of São Paulo, identifying predictor
